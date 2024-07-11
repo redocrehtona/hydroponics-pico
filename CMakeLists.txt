@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
-# Set the project name: 
-set(NAME desk-pico)
+# Set the project name:
+set(NAME hydroponics-pico)
 
 # Include the Raspberry Pi Pico SDK makefile
 include(lib/pico-sdk/pico_sdk_init.cmake)
@@ -13,9 +13,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Initialise the Pi Pico SDK
 pico_sdk_init()
-
-# Include the directory containing the port-specific config file for FreeRTOS
-include_directories(port/FreeRTOS-Kernel)
 
 include_directories(lib/PCF8575)
 
