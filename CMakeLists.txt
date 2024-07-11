@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD 17)
 # Initialise the Pi Pico SDK
 pico_sdk_init()
 
-include_directories(lib/PCF8575)
+add_subdirectory(lib/pico-ssd1306)
 
 # Include the FreeRTOS makefile
 include(lib/FreeRTOS-Kernel/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake)
