@@ -1,3 +1,5 @@
+#define SSD1306_ASCII_FULL
+
 #include "pico/stdlib.h"
 
 #include <stdio.h>
@@ -13,17 +15,66 @@
 #include "pico-ssd1306/ssd1306.h"
 #include "pico-ssd1306/textRenderer/TextRenderer.h"
 
+bool inputState = 0;			// Becomes true when in setting mode
+bool encoderButton = 0;			// Becomes true if the encoder button has been pressed 
+bool encoderB = 0;			// Becomes true if encoder is starting to turn clockwise
+bool encoderA = 0;			// Becomes true if encoder is starting to turn counterclockwise
+int encoderRotation = 0;		// Increases with each full click clockwise, decreases counterclockwise
+
+
 void gpio_callback(uint gpio, uint32_t event_mask) {
-	printf("INTERRUPT\n");
+	printf("INTERRUPT %d\n", gpio);
+
+	switch (gpio) {	
+		// ENC A
+		case 9:
+			if (!encoderB && !encoderA) {
+				encoderA = 1;
+			} else if (encoderB && !encoderA) {
+				encoderRotation -= 1;
+				encoderB = 0;
+			} else if (encoderB && encoderA) {
+				printf("ENCODER ERROR: BOTH DIRECTIONS");
+				encoderA = 0;
+				encoderB = 0;
+			}
+			break;
+		// ENC B
+		case 10:
+			if (!encoderB && !encoderA) {
+				encoderB = 1;
+			} else if (!encoderB && encoderA) {
+				encoderRotation += 1;
+				encoderA = 0;
+			} else if (encoderB && encoderA) {
+				printf("ENCODER ERROR: BOTH DIRECTIONS");
+				encoderA = 0;
+				encoderB = 0;
+			}
+			break;	
+		// Encoder button
+		case 11: 
+			encoderButton = 1;
+			break;
+	}
 }
+
+
  
 void vInputHandler(void* unused_arg) {
-	int loops = 0;
+	int presses = 0;
 
 	for (;;) {
-		printf("Running for %d seconds...\n", loops);
-		loops++;
-		vTaskDelay(1000);
+		printf("Encoder Rotation: %d\n", encoderRotation);
+		// Check inputs
+		if (encoderButton == 1) {
+			presses += 1;
+			printf("Encoder Button Pressed %d times\n", presses);
+			vTaskDelay(500);
+			encoderButton = 0;
+		} else {
+		vTaskDelay(250);
+		}
 	}
 }
 
@@ -85,15 +136,38 @@ void vDisplayTask(void* unused_arg) {
 	//Create a new display object
 	pico_ssd1306::SSD1306 display = pico_ssd1306::SSD1306(i2c0, 0x3C, pico_ssd1306::Size::W128xH64);
 	display.setOrientation(0);
+	display.setContrast(255);
+
+	drawText(&display, font_8x8, "LED TEMP:", 0, 0);
+	drawText(&display, font_8x8, "20.0C", 88, 0);
+
+	drawText(&display, font_8x8, "LED STATE:", 0, 10);
+	drawText(&display, font_8x8, "ON", 112, 10);
+
+	drawText(&display, font_8x8, "FAN SPEED:", 0, 20);
+	drawText(&display, font_8x8, "100%", 96, 20);
+
+	drawText(&display, font_8x8, "TIMER ON:", 0, 30);
+	drawText(&display, font_8x8, "07:00", 88, 30);
+
+	drawText(&display, font_8x8, "TIMER OFF:", 0, 40);
+	drawText(&display, font_8x8, "20:00", 88, 40); 
+
+	drawText(&display, font_8x8, "TIME NOW:", 0, 50);
+	drawText(&display, font_8x8, "13:07", 88, 50);
+
+
+	display.sendBuffer(); 
 
 	/*
 	//create a vertical line on x: 64 y:0-63
 	for (int y = 0; y < 64; y++){
 	    display.setPixel(64, y);
 	}
-      */
+        */
 
-
+	// FLASH THE DISPLAY BRIGHTNESS
+	/*
 	bool flash = 0;
 
 	for (int i = 0; i < 256; i++) {
@@ -108,16 +182,30 @@ void vDisplayTask(void* unused_arg) {
 		
 		vTaskDelay(500);
 	}
+	*/
 }
 
 int main() {
 	stdio_init_all();
 
-	
+	// Interrupt for ENC A
+	gpio_init(9);
+	gpio_set_dir(9, GPIO_IN);
+	gpio_pull_up(9);
+	gpio_set_irq_enabled_with_callback(9, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+	gpio_set_irq_enabled_with_callback(9, GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
+
+	// Interrupt for ENC B
+	gpio_init(10);
+	gpio_set_dir(10, GPIO_IN);
+	gpio_pull_up(10);
+	gpio_set_irq_enabled_with_callback(10, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+	gpio_set_irq_enabled_with_callback(10, GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
+
+	// Interrupt for rotary encoder button
 	gpio_init(11);
 	gpio_set_dir(11, GPIO_IN);
 	gpio_pull_up(11);
-
 	gpio_set_irq_enabled_with_callback(11, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
 	
 
